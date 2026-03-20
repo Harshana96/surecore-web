@@ -14,22 +14,22 @@ pipeline {
           if (env.BRANCH_NAME == 'develop') {
             env.ENV_NAME  = 'dev'
             env.ENV_LABEL = 'DEVELOP'
-            env.ENV_HOST  = 'dev.surecore.local'
+            env.ENV_HOST  = 'dev.89.167.27.46.nip.io'
             env.REPLICAS  = '1'
           } else if (env.BRANCH_NAME == 'release/qa') {
             env.ENV_NAME  = 'qa'
             env.ENV_LABEL = 'QA'
-            env.ENV_HOST  = 'qa.surecore.local'
+            env.ENV_HOST  = 'qa.89.167.27.46.nip.io'
             env.REPLICAS  = '1'
           } else if (env.BRANCH_NAME == 'main') {
             env.ENV_NAME  = 'prod'
             env.ENV_LABEL = 'PRODUCTION'
-            env.ENV_HOST  = 'prod.surecore.local'
+            env.ENV_HOST  = 'prod.89.167.27.46.nip.io'
             env.REPLICAS  = '2'
           } else {
             error("Branch ${env.BRANCH_NAME} not mapped to any environment")
           }
-          echo "Target: ${env.ENV_NAME} namespace"
+          echo "Target: ${env.ENV_NAME} → ${env.ENV_HOST}"
         }
       }
     }
@@ -56,13 +56,12 @@ pipeline {
     stage('Deploy to Kubernetes') {
       steps {
         sh """
-          sed 's/ENV_NAME/${env.ENV_NAME}/g' k8s/deployment.yaml | \
-          sed 's/ENV_HOST/${env.ENV_HOST}/g' | \
+          sed 's|ENV_NAME|${env.ENV_NAME}|g' k8s/deployment.yaml | \
           kubectl apply -f - -n ${env.ENV_NAME}
 
           kubectl apply -f k8s/service.yaml -n ${env.ENV_NAME}
 
-          sed 's/ENV_HOST/${env.ENV_HOST}/g' k8s/ingress.yaml | \
+          sed 's|ENV_HOST|${env.ENV_HOST}|g' k8s/ingress.yaml | \
           kubectl apply -f - -n ${env.ENV_NAME}
 
           kubectl set image deployment/surecore-web \
@@ -84,7 +83,7 @@ pipeline {
         sh """
           sleep 5
           kubectl get pods -n ${env.ENV_NAME}
-          echo "SUCCESS - ${env.ENV_NAME} deployed to Kubernetes"
+          echo "SUCCESS - ${env.ENV_NAME} live at http://${env.ENV_HOST}"
         """
       }
     }
@@ -93,7 +92,7 @@ pipeline {
 
   post {
     success {
-      echo "Pipeline passed - ${env.ENV_NAME} deployed successfully"
+      echo "Pipeline passed - ${env.ENV_NAME} live at http://${env.ENV_HOST}"
     }
     failure {
       echo "Pipeline failed - check logs"
