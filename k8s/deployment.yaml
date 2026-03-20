@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: surecore-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: surecore-web
+  template:
+    metadata:
+      labels:
+        app: surecore-web
+    spec:
+      containers:
+      - name: surecore-web
+        image: localhost:5000/surecore-web:ENV_NAME-latest
+        ports:
+        - containerPort: 80
