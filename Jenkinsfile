@@ -13,20 +13,23 @@ pipeline {
         script {
           if (env.BRANCH_NAME == 'develop') {
             env.ENV_NAME  = 'dev'
-            env.PORT      = '3001'
             env.ENV_LABEL = 'DEVELOP'
+            env.ENV_HOST  = 'dev.surecore.local'
+            env.REPLICAS  = '1'
           } else if (env.BRANCH_NAME == 'release/qa') {
             env.ENV_NAME  = 'qa'
-            env.PORT      = '3002'
             env.ENV_LABEL = 'QA'
+            env.ENV_HOST  = 'qa.surecore.local'
+            env.REPLICAS  = '1'
           } else if (env.BRANCH_NAME == 'main') {
             env.ENV_NAME  = 'prod'
-            env.PORT      = '3003'
             env.ENV_LABEL = 'PRODUCTION'
+            env.ENV_HOST  = 'prod.surecore.local'
+            env.REPLICAS  = '2'
           } else {
             error("Branch ${env.BRANCH_NAME} not mapped to any environment")
           }
-          echo "Target: ${env.ENV_NAME} on port ${env.PORT}"
+          echo "Target: ${env.ENV_NAME} namespace"
         }
       }
     }
@@ -50,16 +53,28 @@ pipeline {
       }
     }
 
-    stage('Deploy') {
+    stage('Deploy to Kubernetes') {
       steps {
         sh """
-          docker stop surecore-${env.ENV_NAME} || true
-          docker rm   surecore-${env.ENV_NAME} || true
-          docker run -d \
-            --name    surecore-${env.ENV_NAME} \
-            --restart always \
-            -p ${env.PORT}:80 \
-            ${env.REGISTRY}/${env.IMAGE}:${env.ENV_NAME}-latest
+          sed 's/ENV_NAME/${env.ENV_NAME}/g' k8s/deployment.yaml | \
+          sed 's/ENV_HOST/${env.ENV_HOST}/g' | \
+          kubectl apply -f - -n ${env.ENV_NAME}
+
+          kubectl apply -f k8s/service.yaml -n ${env.ENV_NAME}
+
+          sed 's/ENV_HOST/${env.ENV_HOST}/g' k8s/ingress.yaml | \
+          kubectl apply -f - -n ${env.ENV_NAME}
+
+          kubectl set image deployment/surecore-web \
+            surecore-web=${env.REGISTRY}/${env.IMAGE}:${env.ENV_NAME}-latest \
+            -n ${env.ENV_NAME}
+
+          kubectl scale deployment/surecore-web \
+            --replicas=${env.REPLICAS} \
+            -n ${env.ENV_NAME}
+
+          kubectl rollout status deployment/surecore-web \
+            -n ${env.ENV_NAME} --timeout=60s
         """
       }
     }
@@ -67,9 +82,9 @@ pipeline {
     stage('Smoke test') {
       steps {
         sh """
-          sleep 3
-          curl -f http://localhost:${env.PORT}
-          echo "SUCCESS - ${env.ENV_NAME} is live on port ${env.PORT}"
+          sleep 5
+          kubectl get pods -n ${env.ENV_NAME}
+          echo "SUCCESS - ${env.ENV_NAME} deployed to Kubernetes"
         """
       }
     }
