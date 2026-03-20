@@ -1,0 +1,5 @@
+body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; }
+.container { max-width: 600px; margin: 80px auto; text-align: center; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+h1 { color: #1F4E79; font-size: 36px; }
+.env { font-size: 14px; font-weight: bold; padding: 6px 16px; border-radius: 20px; background: #E6F1FB; color: #0C447C; display: inline-block; }
+p { color: #555; }
